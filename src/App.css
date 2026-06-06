@@ -514,6 +514,120 @@ ul {
   gap: 8px;
 }
 
+.Filter-dialog {
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--panel);
+  color: var(--text);
+  width: min(620px, 92vw);
+  max-height: calc(100vh - 24px);
+  box-sizing: border-box;
+  overflow: auto;
+  padding: 12px;
+  box-shadow: var(--shadow);
+}
+
+.Filter-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.Filter-header h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.Filter-close {
+  margin: 0;
+  padding: 4px 10px;
+  font-size: 14px;
+}
+
+.Filter-layout {
+  display: grid;
+  gap: 12px;
+}
+
+.Filter-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.Filter-controls label,
+.Filter-kernel-section,
+.Filter-channels-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.Filter-controls select,
+.Filter-kernel-grid input[type="number"] {
+  width: 100%;
+  background: var(--control);
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+  color: var(--text);
+  padding: 8px 10px;
+  box-sizing: border-box;
+}
+
+.Filter-section-title {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.Filter-kernel-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  max-width: 320px;
+}
+
+.Filter-kernel-grid input[type="number"] {
+  text-align: center;
+}
+
+.Filter-channel-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
+
+.Filter-channel-grid label,
+.Filter-preview-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #dedede;
+  font-size: 13px;
+}
+
+.Filter-channel-grid input[type="checkbox"],
+.Filter-preview-toggle input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+}
+
+.Filter-status {
+  margin: 0;
+  color: #cfcfcf;
+  font-size: 13px;
+}
+
+.Filter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .Levels-dialog {
   border: 1px solid var(--line);
   border-radius: 20px;
@@ -838,6 +952,10 @@ ul {
   .Resize-form-grid {
     grid-template-columns: 1fr;
   }
+
+  .Filter-controls {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 480px) {
@@ -872,6 +990,7 @@ ul {
 
   .Levels-dialog,
   .Resize-dialog,
+  .Filter-dialog,
   .Import-dialog,
   .Export-dialog {
     width: calc(100vw - 20px);
