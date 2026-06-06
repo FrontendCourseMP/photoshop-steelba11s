@@ -60,6 +60,16 @@ type CanvasImageLayout = {
   offsetY: number;
 };
 
+type CanvasSize = {
+  width: number;
+  height: number;
+};
+
+const DEFAULT_CANVAS_SIZE: CanvasSize = {
+  width: CANVAS_WIDTH,
+  height: CANVAS_HEIGHT,
+};
+
 const createDefaultLevelsSettingsMap = (): LevelsSettingsMap => ({
   master: { ...DEFAULT_LEVELS_SETTINGS },
   r: { ...DEFAULT_LEVELS_SETTINGS },
@@ -88,13 +98,17 @@ const clampViewScalePercent = (value: number): number => {
   );
 };
 
-const calculateInitialViewScalePercent = (width: number, height: number): number => {
+const calculateInitialViewScalePercent = (
+  width: number,
+  height: number,
+  canvasSize: CanvasSize
+): number => {
   if (width <= 0 || height <= 0) {
     return 100;
   }
 
-  const availableWidth = Math.max(1, CANVAS_WIDTH - INITIAL_VIEW_MARGIN * 2);
-  const availableHeight = Math.max(1, CANVAS_HEIGHT - INITIAL_VIEW_MARGIN * 2);
+  const availableWidth = Math.max(1, canvasSize.width - INITIAL_VIEW_MARGIN * 2);
+  const availableHeight = Math.max(1, canvasSize.height - INITIAL_VIEW_MARGIN * 2);
   const fitPercent = Math.min(availableWidth / width, availableHeight / height) * 100;
   return clampViewScalePercent(fitPercent);
 };
@@ -102,7 +116,8 @@ const calculateInitialViewScalePercent = (width: number, height: number): number
 const getCanvasImageLayout = (
   imageWidth: number,
   imageHeight: number,
-  scalePercent: number
+  scalePercent: number,
+  canvasSize: CanvasSize
 ): CanvasImageLayout => {
   const ratio = clampViewScalePercent(scalePercent) / 100;
   const drawWidth = Math.max(1, Math.round(imageWidth * ratio));
@@ -111,8 +126,8 @@ const getCanvasImageLayout = (
   return {
     drawWidth,
     drawHeight,
-    offsetX: Math.round((CANVAS_WIDTH - drawWidth) / 2),
-    offsetY: Math.round((CANVAS_HEIGHT - drawHeight) / 2),
+    offsetX: Math.round((canvasSize.width - drawWidth) / 2),
+    offsetY: Math.round((canvasSize.height - drawHeight) / 2),
   };
 };
 
@@ -210,14 +225,17 @@ function App() {
   };
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const canvasContainerRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const levelsDialogRef = useRef<HTMLDialogElement | null>(null);
   const levelsHistogramCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const levelsPreviewCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const resizeDialogRef = useRef<HTMLDialogElement | null>(null);
+  const autoFitViewRef = useRef(true);
   const [currentImage, setCurrentImage] = useState<EncodedImage | null>(null);
   const [pendingGb7Image, setPendingGb7Image] = useState<DecodedImage | null>(null);
   const [loadedImageInfo, setLoadedImageInfo] = useState<LoadedImageInfo | null>(null);
+  const [canvasSize, setCanvasSize] = useState<CanvasSize>(DEFAULT_CANVAS_SIZE);
   const [viewScalePercent, setViewScalePercent] = useState(100);
   const [hasAlphaChannel, setHasAlphaChannel] = useState(false);
   const [channelMode, setChannelMode] = useState<ChannelMode>("rgb");
@@ -275,14 +293,58 @@ function App() {
   };
 
   useEffect(() => {
+    const updateCanvasSize = (): void => {
+      const container = canvasContainerRef.current;
+      if (!container) {
+        return;
+      }
+
+      const nextWidth = Math.max(1, Math.floor(container.clientWidth));
+      const nextHeight = Math.max(1, Math.floor(container.clientHeight));
+
+      setCanvasSize((prev) =>
+        prev.width === nextWidth && prev.height === nextHeight
+          ? prev
+          : { width: nextWidth, height: nextHeight }
+      );
+    };
+
+    updateCanvasSize();
+    window.addEventListener("resize", updateCanvasSize);
+
+    const container = canvasContainerRef.current;
+    const resizeObserver =
+      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updateCanvasSize);
+
+    if (container && resizeObserver) {
+      resizeObserver.observe(container);
+    }
+
+    return () => {
+      window.removeEventListener("resize", updateCanvasSize);
+      resizeObserver?.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) {
       return;
     }
 
-    const context = setCanvasResolution(canvas, CANVAS_WIDTH, CANVAS_HEIGHT);
-    resetCanvasBackground(context, CANVAS_WIDTH, CANVAS_HEIGHT, CANVAS_BG);
-  }, []);
+    const context = setCanvasResolution(canvas, canvasSize.width, canvasSize.height);
+    resetCanvasBackground(context, canvasSize.width, canvasSize.height, CANVAS_BG);
+  }, [canvasSize]);
+
+  useEffect(() => {
+    if (!currentImage || !autoFitViewRef.current) {
+      return;
+    }
+
+    setViewScalePercent(
+      calculateInitialViewScalePercent(currentImage.width, currentImage.height, canvasSize)
+    );
+  }, [canvasSize, currentImage]);
 
   const resolveResizeTargetDimensions = (
     unit = resizeUnit,
@@ -580,17 +642,18 @@ function App() {
       return;
     }
 
-    const context = setCanvasResolution(canvas, CANVAS_WIDTH, CANVAS_HEIGHT);
+    const context = setCanvasResolution(canvas, canvasSize.width, canvasSize.height);
     if (!context) {
       return;
     }
 
-    resetCanvasBackground(context, CANVAS_WIDTH, CANVAS_HEIGHT, CANVAS_BG);
+    resetCanvasBackground(context, canvasSize.width, canvasSize.height, CANVAS_BG);
 
     const layout = getCanvasImageLayout(
       currentImage.width,
       currentImage.height,
-      viewScalePercent
+      viewScalePercent,
+      canvasSize
     );
     const regionX = Math.max(0, -layout.offsetX);
     const regionY = Math.max(0, -layout.offsetY);
@@ -598,11 +661,11 @@ function App() {
     const destinationY = Math.max(0, layout.offsetY);
     const regionWidth = Math.min(
       layout.drawWidth - regionX,
-      CANVAS_WIDTH - destinationX
+      canvasSize.width - destinationX
     );
     const regionHeight = Math.min(
       layout.drawHeight - regionY,
-      CANVAS_HEIGHT - destinationY
+      canvasSize.height - destinationY
     );
 
     if (regionWidth <= 0 || regionHeight <= 0) {
@@ -627,7 +690,7 @@ function App() {
       destinationX,
       destinationY
     );
-  }, [currentImage, visibleImageData, viewScalePercent]);
+  }, [canvasSize, currentImage, visibleImageData, viewScalePercent]);
 
   const handleUpload = (): void => {
     fileInputRef.current?.click();
@@ -650,7 +713,10 @@ function App() {
       height: decoded.height,
       colorDepthBits: decoded.colorDepth,
     });
-    setViewScalePercent(calculateInitialViewScalePercent(decoded.width, decoded.height));
+    autoFitViewRef.current = true;
+    setViewScalePercent(
+      calculateInitialViewScalePercent(decoded.width, decoded.height, canvasSize)
+    );
     setPickedPixel(null);
   };
 
@@ -671,7 +737,10 @@ function App() {
       height: decoded.height,
       colorDepthBits: decoded.hasMask ? 32 : 24,
     });
-    setViewScalePercent(calculateInitialViewScalePercent(decoded.width, decoded.height));
+    autoFitViewRef.current = true;
+    setViewScalePercent(
+      calculateInitialViewScalePercent(decoded.width, decoded.height, canvasSize)
+    );
     setPickedPixel(null);
   };
 
@@ -777,7 +846,10 @@ function App() {
           data: originalData.data,
           hasMask: effectiveHasAlpha,
         });
-        setViewScalePercent(calculateInitialViewScalePercent(image.width, image.height));
+        autoFitViewRef.current = true;
+        setViewScalePercent(
+          calculateInitialViewScalePercent(image.width, image.height, canvasSize)
+        );
         setPickedPixel(null);
 
         URL.revokeObjectURL(imageUrl);
@@ -893,7 +965,10 @@ function App() {
       height: decoded.height,
       colorDepthBits: decoded.colorDepth,
     });
-    setViewScalePercent(calculateInitialViewScalePercent(decoded.width, decoded.height));
+    autoFitViewRef.current = true;
+    setViewScalePercent(
+      calculateInitialViewScalePercent(decoded.width, decoded.height, canvasSize)
+    );
     setPickedPixel(null);
     URL.revokeObjectURL(url);
   };
@@ -923,6 +998,7 @@ function App() {
     if (!Number.isFinite(value)) {
       return;
     }
+    autoFitViewRef.current = false;
     setViewScalePercent(clampViewScalePercent(value));
   };
 
@@ -1266,7 +1342,8 @@ function App() {
     const layout = getCanvasImageLayout(
       currentImage.width,
       currentImage.height,
-      viewScalePercent
+      viewScalePercent,
+      { width: canvas.width, height: canvas.height }
     );
 
     if (
@@ -1851,18 +1928,18 @@ function App() {
             </div>
           </section>
           <section className="Canvas-workspace">
-          <div className="canvas-container">
-            <canvas
-              ref={canvasRef}
-              width={CANVAS_WIDTH}
-              height={CANVAS_HEIGHT}
-              id="myCanvas"
-              onMouseDown={handleCanvasMouseDown}
-              className={activeTool === "eyedropper" ? "eyedropper-active" : ""}
-            >
-              Your browser does not support the HTML canvas tag.
-            </canvas>
-          </div>
+            <div className="canvas-container" ref={canvasContainerRef}>
+              <canvas
+                ref={canvasRef}
+                width={canvasSize.width}
+                height={canvasSize.height}
+                id="myCanvas"
+                onMouseDown={handleCanvasMouseDown}
+                className={activeTool === "eyedropper" ? "eyedropper-active" : ""}
+              >
+                Your browser does not support the HTML canvas tag.
+              </canvas>
+            </div>
           <div className="canvas-info">
             <span>
               Глубина цвета:{" "}

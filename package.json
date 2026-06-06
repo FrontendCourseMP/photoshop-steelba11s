@@ -16,7 +16,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test": "vitest",
+    "test": "vitest --run",
     "typecheck": "tsc --noEmit"
   },
   "browserslist": {
