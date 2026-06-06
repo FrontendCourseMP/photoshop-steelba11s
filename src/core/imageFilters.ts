@@ -3,6 +3,7 @@ export type EdgeHandling = "black" | "white" | "copy";
 export type FilterMode = "kernel" | "median";
 
 export type FilterPresetKey =
+  | "custom"
   | "identity"
   | "sharpen"
   | "gaussian"
@@ -16,6 +17,7 @@ export type KernelPreset = {
   label: string;
   mode: FilterMode;
   kernel: number[];
+  normalize: boolean;
 };
 
 export type ApplyFilterOptions = {
@@ -26,6 +28,7 @@ export type ApplyFilterOptions = {
   mode: FilterMode;
   channels: FilterChannel[];
   edgeHandling: EdgeHandling;
+  normalizeKernelSum?: boolean;
   yieldEveryRows?: number;
 };
 
@@ -43,50 +46,64 @@ export const FILTER_KERNEL_VALUE_COUNT = FILTER_KERNEL_SIZE * FILTER_KERNEL_SIZE
 
 export const FILTER_PRESETS: KernelPreset[] = [
   {
+    key: "custom",
+    label: "Пользовательская",
+    mode: "kernel",
+    kernel: [0, 0, 0, 0, 1, 0, 0, 0, 0],
+    normalize: false,
+  },
+  {
     key: "identity",
     label: "Тождественное отображение",
     mode: "kernel",
     kernel: [0, 0, 0, 0, 1, 0, 0, 0, 0],
+    normalize: false,
   },
   {
     key: "sharpen",
     label: "Повышение резкости",
     mode: "kernel",
     kernel: [0, -1, 0, -1, 5, -1, 0, -1, 0],
+    normalize: false,
   },
   {
     key: "gaussian",
     label: "Фильтр Гаусса 3x3",
     mode: "kernel",
     kernel: [1, 2, 1, 2, 4, 2, 1, 2, 1],
+    normalize: true,
   },
   {
     key: "boxBlur",
     label: "Прямоугольное размытие",
     mode: "kernel",
     kernel: [1, 1, 1, 1, 1, 1, 1, 1, 1],
+    normalize: true,
   },
   {
     key: "prewittX",
     label: "Оператор Прюитта X",
     mode: "kernel",
     kernel: [-1, 0, 1, -1, 0, 1, -1, 0, 1],
+    normalize: false,
   },
   {
     key: "prewittY",
     label: "Оператор Прюитта Y",
     mode: "kernel",
     kernel: [-1, -1, -1, 0, 0, 0, 1, 1, 1],
+    normalize: false,
   },
   {
     key: "median",
     label: "Медианная фильтрация 3x3",
     mode: "median",
     kernel: [1, 1, 1, 1, 1, 1, 1, 1, 1],
+    normalize: false,
   },
 ];
 
-export const DEFAULT_FILTER_PRESET = FILTER_PRESETS[0];
+export const DEFAULT_FILTER_PRESET = FILTER_PRESETS[1];
 
 function clampByte(value: number): number {
   return Math.min(255, Math.max(0, Math.round(value)));
@@ -125,7 +142,11 @@ function getChannelValue(
   return sourceData[(safeY * width + safeX) * 4 + channelOffset];
 }
 
-function getKernelDivisor(kernel: number[]): number {
+function getKernelDivisor(kernel: number[], normalizeKernelSum = false): number {
+  if (!normalizeKernelSum) {
+    return 1;
+  }
+
   const sum = kernel.reduce((total, value) => total + value, 0);
   return sum === 0 ? 1 : sum;
 }
@@ -256,7 +277,7 @@ export async function applyImageFilter(options: ApplyFilterOptions): Promise<Uin
   }
 
   const output = new Uint8ClampedArray(options.sourceData);
-  const divisor = getKernelDivisor(kernel);
+  const divisor = getKernelDivisor(kernel, options.normalizeKernelSum);
 
   for (let y = 0; y < safeHeight; y += 1) {
     for (let x = 0; x < safeWidth; x += 1) {

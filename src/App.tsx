@@ -39,7 +39,6 @@ import {
   FILTER_PRESETS,
   FilterMode,
   FilterPresetKey,
-  applyImageFilter,
   normalizeKernel,
 } from "./core/imageFilters";
 
@@ -253,6 +252,7 @@ function App() {
   const filterDialogRef = useRef<HTMLDialogElement | null>(null);
   const autoFitViewRef = useRef(true);
   const filterPreviewRequestRef = useRef(0);
+  const filterWorkerRef = useRef<Worker | null>(null);
   const [currentImage, setCurrentImage] = useState<EncodedImage | null>(null);
   const [pendingGb7Image, setPendingGb7Image] = useState<DecodedImage | null>(null);
   const [loadedImageInfo, setLoadedImageInfo] = useState<LoadedImageInfo | null>(null);
@@ -488,6 +488,82 @@ function App() {
     return "";
   }, [filterKernel, selectedFilterChannels]);
 
+  const selectedFilterPreset = useMemo(
+    () => FILTER_PRESETS.find((preset) => preset.key === filterPresetKey) ?? DEFAULT_FILTER_PRESET,
+    [filterPresetKey]
+  );
+
+  const stopFilterWorker = (): void => {
+    filterWorkerRef.current?.terminate();
+    filterWorkerRef.current = null;
+  };
+
+  const runFilterInWorker = (
+    requestId: number,
+    sourceImage: EncodedImage,
+    yieldEveryRows = 48
+  ): Promise<Uint8ClampedArray> => {
+    stopFilterWorker();
+
+    return new Promise((resolve, reject) => {
+      const worker = new Worker(new URL("./workers/imageFilterWorker.ts", import.meta.url), {
+        type: "module",
+      });
+
+      filterWorkerRef.current = worker;
+
+      worker.onmessage = (
+        event: MessageEvent<{
+          requestId: number;
+          data?: Uint8ClampedArray;
+          error?: string;
+        }>
+      ): void => {
+        if (event.data.requestId !== requestId) {
+          return;
+        }
+
+        stopFilterWorker();
+
+        if (event.data.error) {
+          reject(new Error(event.data.error));
+          return;
+        }
+
+        if (!event.data.data) {
+          reject(new Error("Не удалось получить результат фильтрации"));
+          return;
+        }
+
+        resolve(event.data.data);
+      };
+
+      worker.onerror = (event): void => {
+        stopFilterWorker();
+        reject(new Error(event.message || "Ошибка worker фильтрации"));
+      };
+
+      worker.postMessage({
+        requestId,
+        sourceData: new Uint8ClampedArray(sourceImage.data),
+        width: sourceImage.width,
+        height: sourceImage.height,
+        kernel: normalizeKernel(filterKernel),
+        mode: filterMode,
+        channels: selectedFilterChannels,
+        edgeHandling: filterEdgeHandling,
+        normalizeKernelSum: selectedFilterPreset.normalize,
+        yieldEveryRows,
+      });
+    });
+  };
+
+  useEffect(() => {
+    return () => {
+      stopFilterWorker();
+    };
+  }, []);
+
   useEffect(() => {
     setFilterChannelSelection((prev) => {
       const next = createDefaultFilterChannelSelection();
@@ -497,32 +573,6 @@ function App() {
       return next;
     });
   }, [availableFilterChannels]);
-
-  const visibleImageData = useMemo(() => {
-    if (!currentImage) {
-      return null;
-    }
-
-    const sourceData =
-      filterDialogOpen && filterPreviewEnabled && filterPreviewData
-        ? filterPreviewData
-        : currentImage.data;
-
-    return applyChannelVisibility(
-      sourceData,
-      channelVisibility,
-      hasAlphaChannel,
-      channelMode
-    );
-  }, [
-    currentImage,
-    filterDialogOpen,
-    filterPreviewEnabled,
-    filterPreviewData,
-    channelVisibility,
-    hasAlphaChannel,
-    channelMode,
-  ]);
 
   const availableLevelsTargets = useMemo((): LevelsTarget[] => {
     const base = channelMode === "gray" ? (["master", "gray"] as LevelsTarget[]) : (["master", "r", "g", "b"] as LevelsTarget[]);
@@ -588,9 +638,41 @@ function App() {
     hasAlphaChannel,
   ]);
 
+  const visibleImageData = useMemo(() => {
+    if (!currentImage) {
+      return null;
+    }
+
+    const sourceData =
+      filterDialogOpen && filterPreviewEnabled && filterPreviewData
+        ? filterPreviewData
+        : levelsDialogOpen && levelsPreviewEnabled && levelsPreviewData
+          ? levelsPreviewData
+          : currentImage.data;
+
+    return applyChannelVisibility(
+      sourceData,
+      channelVisibility,
+      hasAlphaChannel,
+      channelMode
+    );
+  }, [
+    currentImage,
+    filterDialogOpen,
+    filterPreviewEnabled,
+    filterPreviewData,
+    levelsDialogOpen,
+    levelsPreviewEnabled,
+    levelsPreviewData,
+    channelVisibility,
+    hasAlphaChannel,
+    channelMode,
+  ]);
+
   useEffect(() => {
     if (!filterDialogOpen || !filterBaseImage || !filterPreviewEnabled || filterValidation) {
       filterPreviewRequestRef.current += 1;
+      stopFilterWorker();
       setFilterPreviewData(null);
       setFilterProcessing(false);
       return;
@@ -600,16 +682,7 @@ function App() {
     filterPreviewRequestRef.current = requestId;
     setFilterProcessing(true);
 
-    applyImageFilter({
-      sourceData: filterBaseImage.data,
-      width: filterBaseImage.width,
-      height: filterBaseImage.height,
-      kernel: normalizeKernel(filterKernel),
-      mode: filterMode,
-      channels: selectedFilterChannels,
-      edgeHandling: filterEdgeHandling,
-      yieldEveryRows: 18,
-    })
+    runFilterInWorker(requestId, filterBaseImage)
       .then((nextData) => {
         if (filterPreviewRequestRef.current === requestId) {
           setFilterPreviewData(nextData);
@@ -636,6 +709,7 @@ function App() {
     filterMode,
     filterPreviewEnabled,
     filterValidation,
+    selectedFilterPreset,
     selectedFilterChannels,
   ]);
 
@@ -1162,12 +1236,10 @@ function App() {
     setFilterKernel([...DEFAULT_FILTER_PRESET.kernel]);
     setFilterEdgeHandling("copy");
     setFilterPreviewEnabled(true);
-    setFilterChannelSelection((prev) => {
+    setFilterChannelSelection(() => {
       const next = createDefaultFilterChannelSelection();
       (Object.keys(next) as FilterChannel[]).forEach((channel) => {
-        next[channel] = availableFilterChannels.includes(channel)
-          ? prev[channel] || next[channel]
-          : false;
+        next[channel] = availableFilterChannels.includes(channel) ? next[channel] : false;
       });
       return next;
     });
@@ -1187,11 +1259,12 @@ function App() {
     setFilterPreviewData(null);
     resetFilterSettings();
     setFilterDialogOpen(true);
-    filterDialogRef.current?.showModal();
+    filterDialogRef.current?.show();
   };
 
   const closeFilterDialog = (): void => {
     filterPreviewRequestRef.current += 1;
+    stopFilterWorker();
     setFilterDialogOpen(false);
     setFilterBaseImage(null);
     setFilterPreviewData(null);
@@ -1221,6 +1294,8 @@ function App() {
   };
 
   const handleFilterKernelValueChange = (index: number, value: number): void => {
+    setFilterPresetKey("custom");
+    setFilterMode("kernel");
     setFilterKernel((prev) => {
       const next = [...prev];
       next[index] = Number.isFinite(value) ? value : 0;
@@ -1254,16 +1329,7 @@ function App() {
       const nextData =
         filterPreviewEnabled && filterPreviewData
           ? new Uint8ClampedArray(filterPreviewData)
-          : await applyImageFilter({
-              sourceData: filterBaseImage.data,
-              width: filterBaseImage.width,
-              height: filterBaseImage.height,
-              kernel: normalizeKernel(filterKernel),
-              mode: filterMode,
-              channels: selectedFilterChannels,
-              edgeHandling: filterEdgeHandling,
-              yieldEveryRows: 18,
-            });
+          : await runFilterInWorker(filterPreviewRequestRef.current + 1, filterBaseImage);
 
       clearLevelsDialogSession();
       setCurrentImage({
@@ -1451,7 +1517,7 @@ function App() {
     setLevelsInitialSettingsByTarget(cloneLevelsSettingsMap(levelsSettingsByTarget));
     setLevelsPreviewEnabled(true);
     setLevelsDialogOpen(true);
-    levelsDialogRef.current?.showModal();
+    levelsDialogRef.current?.show();
   };
 
   const closeLevelsDialog = (): void => {
@@ -2064,7 +2130,6 @@ function App() {
                     onChange={(event) =>
                       handleFilterPresetChange(event.target.value as FilterPresetKey)
                     }
-                    disabled={filterProcessing}
                   >
                     {FILTER_PRESETS.map((preset) => (
                       <option key={preset.key} value={preset.key}>
@@ -2081,7 +2146,6 @@ function App() {
                     onChange={(event) =>
                       setFilterEdgeHandling(event.target.value as EdgeHandling)
                     }
-                    disabled={filterProcessing}
                   >
                     <option value="copy">Копирование края</option>
                     <option value="black">Черное заполнение</option>
@@ -2099,7 +2163,6 @@ function App() {
                       type="number"
                       step={0.1}
                       value={value}
-                      disabled={filterProcessing}
                       onChange={(event) =>
                         handleFilterKernelValueChange(index, event.target.valueAsNumber)
                       }
@@ -2117,7 +2180,6 @@ function App() {
                       <input
                         type="checkbox"
                         checked={filterChannelSelection[channel]}
-                        disabled={filterProcessing}
                         onChange={(event) =>
                           handleFilterChannelChange(channel, event.target.checked)
                         }
@@ -2132,7 +2194,6 @@ function App() {
                 <input
                   type="checkbox"
                   checked={filterPreviewEnabled}
-                  disabled={filterProcessing}
                   onChange={(event) => setFilterPreviewEnabled(event.target.checked)}
                 />
                 Предпросмотр на холсте
@@ -2151,7 +2212,7 @@ function App() {
                   className="Nav-buttons"
                   type="button"
                   onClick={handleApplyFilter}
-                  disabled={filterProcessing || Boolean(filterValidation)}
+                  disabled={Boolean(filterValidation)}
                 >
                   Применить
                 </button>
@@ -2159,7 +2220,6 @@ function App() {
                   className="Nav-buttons"
                   type="button"
                   onClick={resetFilterSettings}
-                  disabled={filterProcessing}
                 >
                   Сброс
                 </button>
@@ -2167,7 +2227,6 @@ function App() {
                   className="Nav-buttons"
                   type="button"
                   onClick={closeFilterDialog}
-                  disabled={filterProcessing}
                 >
                   Закрыть
                 </button>

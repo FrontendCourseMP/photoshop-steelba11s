@@ -310,8 +310,7 @@ summary:focus-visible {
 }
 
 dialog::backdrop {
-  background: rgba(0, 0, 0, 0.58);
-  backdrop-filter: blur(3px);
+  background: rgba(0, 0, 0, 0.36);
 }
 
 ul {
@@ -515,11 +514,15 @@ ul {
 }
 
 .Filter-dialog {
+  position: fixed;
+  top: 86px;
+  right: 14px;
+  left: auto;
   border: 1px solid var(--line);
   border-radius: 20px;
   background: var(--panel);
   color: var(--text);
-  width: min(620px, 92vw);
+  width: min(520px, 42vw);
   max-height: calc(100vh - 24px);
   box-sizing: border-box;
   overflow: auto;
@@ -629,12 +632,17 @@ ul {
 }
 
 .Levels-dialog {
+  position: fixed;
+  top: 86px;
+  right: 14px;
+  left: auto;
   border: 1px solid var(--line);
   border-radius: 20px;
   background: var(--panel);
   color: var(--text);
-  min-width: min(980px, 92vw);
-  max-width: 90vw;
+  width: min(680px, 52vw);
+  min-width: 0;
+  max-width: 92vw;
   max-height: calc(100vh - 24px);
   box-sizing: border-box;
   overflow: auto;

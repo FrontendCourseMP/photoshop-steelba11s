@@ -37,10 +37,27 @@ describe("applyImageFilter", () => {
       mode: "kernel",
       channels: ["r"],
       edgeHandling: "black",
+      normalizeKernelSum: true,
     });
 
     expect(result[0]).toBe(9);
     expect(result[1]).toBe(0);
+  });
+
+  test("does not normalize custom kernels unless requested", async () => {
+    const result = await applyImageFilter({
+      sourceData: source3x3,
+      width: 3,
+      height: 3,
+      kernel: [0, 0, 0, 0, 2, 0, 0, 0, 0],
+      mode: "kernel",
+      channels: ["r"],
+      edgeHandling: "copy",
+      normalizeKernelSum: false,
+    });
+
+    expect(result[(1 * 3 + 1) * 4]).toBe(80);
+    expect(result[(1 * 3 + 1) * 4 + 1]).toBe(40);
   });
 
   test("applies median filter to remove a channel spike", async () => {
