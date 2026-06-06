@@ -2,10 +2,25 @@
 
 Небольшой редактор изображений на React + Vite. Поддерживает загрузку PNG/JPG/GB7, просмотр каналов, пипетку с RGB/LAB, уровни, масштабирование изображения и экспорт в PNG/JPG/GB7.
 
-## Запуск
+## Запущенный проект
+
+Проект доступен по ссылке:
+
+```text
+https://photoshop-steelba11s.onrender.com/
+```
+
+## Локальный запуск
+
+Установить зависимости:
 
 ```bash
 npm install
+```
+
+Запустить проект в режиме разработки:
+
+```bash
 npm run dev
 ```
 
@@ -15,15 +30,35 @@ npm run dev
 http://localhost:5173
 ```
 
-## Проверки
+## Сборка и проверка
+
+Проверить TypeScript:
 
 ```bash
 npm run typecheck
+```
+
+Запустить тесты:
+
+```bash
 npm test -- --run
+```
+
+Собрать production-версию:
+
+```bash
 npm run build
 ```
 
-`npm run build` сначала проверяет TypeScript, затем собирает production-версию в папку `dist`.
+Собранные файлы появятся в папке `dist`.
+
+## Локальный preview production-сборки
+
+После сборки можно запустить preview:
+
+```bash
+npm run preview
+```
 
 ## Формат GB7
 
