@@ -6,13 +6,13 @@ const round = value => Number(value.toFixed(4));
 
 export function createResizeTool({ commit, close }) {
   const dialog = $('resize-dialog');
-  let source, unit = 'px', reference, applying = false;
+  let source, unit = 'px', applying = false;
 
   function dimensions() {
     const width = $('resize-width').valueAsNumber, height = $('resize-height').valueAsNumber;
     if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) throw new Error('Введите положительные ширину и высоту.');
     if (unit === 'px' && (!Number.isInteger(width) || !Number.isInteger(height))) throw new Error('Размеры в пикселях должны быть целыми.');
-    const result = unit === 'px' ? { width, height } : { width: Math.round(reference.width * width / 100), height: Math.round(reference.height * height / 100) };
+    const result = unit === 'px' ? { width, height } : { width: Math.round(source.width * width / 100), height: Math.round(source.height * height / 100) };
     validateSize(result.width, result.height);
     return result;
   }
@@ -59,7 +59,6 @@ export function createResizeTool({ commit, close }) {
   $('resize-unit').addEventListener('change', () => {
     try {
       const size = dimensions();
-      reference = { ...size };
       unit = $('resize-unit').value;
       $('resize-width').value = unit === 'px' ? size.width : round(size.width / source.width * 100);
       $('resize-height').value = unit === 'px' ? size.height : round(size.height / source.height * 100);
@@ -92,7 +91,6 @@ export function createResizeTool({ commit, close }) {
   return {
     open(image) {
       source = image;
-      reference = { width: image.width, height: image.height };
       unit = 'px';
       $('resize-unit').value = unit;
       $('resize-method').value = 'bilinear';
