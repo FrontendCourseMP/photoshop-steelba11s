@@ -12,7 +12,7 @@
 <body>
   <div class="editor">
     <header class="topbar">
-      <a class="brand" href="./" aria-label="Пиксель, главная">П<span class="brand-dot">и</span>ксель<span class="brand-index">01 / 02</span></a>
+      <a class="brand" href="./" aria-label="Пиксель, главная">П<span class="brand-dot">и</span>ксель<span class="brand-index">01 / 04</span></a>
       <div class="file-actions">
         <button id="open" class="command"><span data-icon="folder"></span><span>Открыть</span></button>
         <button id="save" class="command primary" disabled><span data-icon="download"></span><span>Сохранить</span></button>
@@ -24,6 +24,8 @@
       <nav class="tools" aria-label="Инструменты">
         <button id="pointer" class="icon-button selected" aria-label="Просмотр" title="Просмотр" aria-pressed="true"><span data-icon="pointer"></span></button>
         <button id="eyedropper" class="icon-button" aria-label="Пипетка" title="Пипетка" aria-pressed="false" disabled><span data-icon="pipette"></span></button>
+        <button id="levels" class="icon-button" aria-label="Уровни" title="Уровни" disabled><span data-icon="levels"></span></button>
+        <button id="resize" class="icon-button" aria-label="Размер изображения" title="Размер изображения" disabled><span data-icon="resize"></span></button>
         <div class="tool-divider"></div>
         <button id="fit" class="icon-button" aria-label="Вписать в окно" title="Вписать в окно" disabled><span data-icon="fit"></span></button>
         <button id="actual" class="icon-button numeric" aria-label="Исходный размер" title="Исходный размер" disabled>1:1</button>
@@ -57,7 +59,7 @@
         </section>
       </aside>
     </main>
-    <footer class="statusbar"><span id="status" role="status" aria-live="polite">Готово</span><div class="image-info"><span id="dimensions">— × — px</span><span id="depth">— бит</span><span id="display-scale">— %</span></div></footer>
+    <footer class="statusbar"><span id="status" role="status" aria-live="polite">Готово</span><div class="image-info"><span id="dimensions">— × — px</span><span id="depth">— бит</span><label class="zoom-control"><input id="view-zoom" aria-label="Масштаб просмотра" type="range" min="12" max="300" step="0.1" value="100" disabled><span id="display-scale">— %</span></label></div></footer>
   </div>
   <div id="error" class="error" role="alert" hidden><span id="error-text"></span><button id="error-close" aria-label="Закрыть сообщение">×</button></div>
   <dialog id="export-dialog">
@@ -68,6 +70,39 @@
       <p id="export-note" class="export-note">Без потерь, с сохранением прозрачности.</p>
       <p class="export-note">Сохраняется текущий вид с выбранными каналами.</p>
       <div class="dialog-actions"><button type="button" id="export-cancel" class="command">Отмена</button><button type="submit" id="export-submit" class="command primary"><span data-icon="download"></span>Сохранить</button></div>
+    </form>
+  </dialog>
+  <dialog id="levels-dialog" class="adjustment-dialog" aria-labelledby="levels-title">
+    <form id="levels-form">
+      <div class="dialog-heading"><h2 id="levels-title">Уровни</h2><button type="button" id="levels-close" class="icon-button" aria-label="Закрыть уровни">×</button></div>
+      <div class="histogram-toolbar">
+        <label class="field">Канал<select id="levels-channel"><option value="master">Master (RGB)</option><option value="red">Red</option><option value="green">Green</option><option value="blue">Blue</option><option value="alpha">Alpha</option></select></label>
+        <fieldset class="segmented"><legend>Гистограмма</legend><label><input id="histogram-linear" type="radio" name="histogram-scale" checked><span>Линейная</span></label><label><input id="histogram-log" type="radio" name="histogram-scale"><span>Лог.</span></label></fieldset>
+      </div>
+      <div class="histogram-labels"><span id="histogram-peak"></span><span id="levels-progress" role="status"></span></div>
+      <canvas id="levels-histogram" width="768" height="280" aria-label="Гистограмма выбранного канала"></canvas>
+      <div class="histogram-axis"><span>0</span><span id="histogram-end">255</span></div>
+      <div id="levels-track" class="levels-track">
+        <button type="button" id="marker-black" class="level-marker black-marker" role="slider" aria-label="Точка чёрного"></button>
+        <button type="button" id="marker-gamma" class="level-marker gamma-marker" role="slider" aria-label="Гамма"></button>
+        <button type="button" id="marker-white" class="level-marker white-marker" role="slider" aria-label="Точка белого"></button>
+      </div>
+      <div class="input-levels"><label class="field">Чёрный<input id="levels-black" type="number" min="0" max="254" step="1" required></label><label class="field">Гамма<input id="levels-gamma" type="number" min="0.1" max="9.9" step="0.01" required></label><label class="field">Белый<input id="levels-white" type="number" min="1" max="255" step="1" required></label></div>
+      <label class="check-field"><input id="levels-preview" type="checkbox" checked>Предпросмотр</label>
+      <p id="levels-error" class="form-error" role="alert"></p>
+      <div class="dialog-actions"><button type="button" id="levels-reset" class="command reset-action">Сбросить</button><button type="button" id="levels-cancel" class="command">Отмена</button><button type="submit" id="levels-apply" class="command primary">Применить</button></div>
+    </form>
+  </dialog>
+  <dialog id="resize-dialog" class="adjustment-dialog" aria-labelledby="resize-title">
+    <form id="resize-form">
+      <div class="dialog-heading"><h2 id="resize-title">Размер изображения</h2><button type="button" id="resize-close" class="icon-button" aria-label="Закрыть размер изображения">×</button></div>
+      <div class="resize-summary"><div><span>До</span><strong id="resize-before"></strong><small id="resize-original"></small></div><span data-icon="arrow"></span><div><span>После</span><strong id="resize-after"></strong><small id="resize-pixels"></small></div></div>
+      <label class="field">Единицы<select id="resize-unit"><option value="px">Пиксели</option><option value="percent">Проценты</option></select></label>
+      <div class="resize-dimensions"><label class="field">Ширина<input id="resize-width" type="number" min="1" step="1" required></label><label class="field">Высота<input id="resize-height" type="number" min="1" step="1" required></label></div>
+      <label class="check-field"><input id="resize-linked" type="checkbox" checked>Сохранять пропорции</label>
+      <div class="method-field"><label class="field">Интерполяция<select id="resize-method"><option value="bilinear">Билинейная</option><option value="nearest">Ближайший сосед</option></select></label><div class="tooltip-anchor"><button id="resize-method-info" type="button" class="icon-button" aria-label="Описание интерполяции" aria-describedby="resize-method-tooltip"><span data-icon="help"></span></button><span id="resize-method-tooltip" role="tooltip"></span></div></div>
+      <p id="resize-error" class="form-error" role="alert"></p><p id="resize-progress" class="form-progress" role="status"></p>
+      <div class="dialog-actions"><button type="button" id="resize-cancel" class="command">Отмена</button><button type="submit" id="resize-apply" class="command primary">Применить</button></div>
     </form>
   </dialog>
 </body>

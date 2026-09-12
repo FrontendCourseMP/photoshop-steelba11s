@@ -3,9 +3,12 @@ import { channelsFor, composeChannels, channelThumbnail } from './domain/channel
 import { rgbToLab, pixelAt } from './domain/color.js';
 import { makeSample } from './domain/sample.js';
 import { renderIcons } from './ui/icons.js';
+import { resampleRegion } from './domain/resample.js';
+import { createLevelsTool } from './ui/levels-tool.js';
+import { createResizeTool } from './ui/resize-tool.js';
 
 const $ = id => document.getElementById(id);
-const state = { source: null, view: null, enabled: new Set(), tool: 'pointer', fit: true, selection: null, loading: false, rendering: false, exporting: false, revision: 0 };
+const state = { source: null, view: null, preview: null, enabled: new Set(), tool: 'pointer', fit: true, zoom: 100, selection: null, loading: false, rendering: false, exporting: false, editing: false, revision: 0, paintRevision: 0 };
 const canvas = $('canvas'), context = canvas.getContext('2d');
 renderIcons();
 
@@ -15,11 +18,12 @@ function showError(error) {
 }
 
 function updateControls() {
-  const unavailable = !state.source || state.loading;
-  for (const id of ['eyedropper', 'fit', 'actual']) $(id).disabled = unavailable;
-  $('open').disabled = $('empty-open').disabled = $('sample').disabled = state.loading;
+  const unavailable = !state.source || state.loading || state.editing;
+  for (const id of ['eyedropper', 'fit', 'actual', 'view-zoom']) $(id).disabled = unavailable;
+  for (const id of ['levels', 'resize']) $(id).disabled = unavailable || state.rendering;
+  $('open').disabled = $('empty-open').disabled = $('sample').disabled = state.loading || state.editing;
   $('save').disabled = unavailable || state.rendering || state.exporting;
-  for (const input of $('channels').querySelectorAll('input')) input.disabled = state.loading;
+  for (const input of $('channels').querySelectorAll('input')) input.disabled = state.loading || state.editing;
   $('workspace').setAttribute('aria-busy', String(state.loading || state.rendering));
 }
 
@@ -36,14 +40,40 @@ function fitImage() {
   if (!state.source) return;
   const { width, height } = state.source;
   const room = $('workspace');
-  const padding = window.innerWidth <= 680 ? 32 : 64;
-  const scale = state.fit ? Math.min(1, Math.max(1, room.clientWidth - padding) / width, Math.max(1, room.clientHeight - padding) / height) : 1;
-  $('image-stage').style.width = `${width * scale}px`;
-  $('image-stage').style.height = `${height * scale}px`;
-  $('display-scale').textContent = `${Number((scale * 100).toFixed(1))} %`;
+  if (state.fit) state.zoom = Math.max(12, Math.min(300, Math.min((room.clientWidth - 100) / width, (room.clientHeight - 100) / height) * 100));
+  state.displayWidth = Math.max(1, Math.round(width * state.zoom / 100));
+  state.displayHeight = Math.max(1, Math.round(height * state.zoom / 100));
+  $('image-stage').style.width = `${state.displayWidth}px`;
+  $('image-stage').style.height = `${state.displayHeight}px`;
+  $('view-zoom').value = state.zoom;
+  $('display-scale').textContent = `${Number(state.zoom.toFixed(1))} %`;
   $('fit').classList.toggle('selected', state.fit);
-  $('actual').classList.toggle('selected', !state.fit);
+  $('actual').classList.toggle('selected', !state.fit && state.zoom === 100);
   positionMarker();
+  drawViewport();
+}
+
+async function drawViewport() {
+  const revision = ++state.paintRevision;
+  canvas.setAttribute('aria-busy', 'false');
+  if (!state.view) return;
+  const stage = $('image-stage').getBoundingClientRect(), workspace = $('workspace').getBoundingClientRect();
+  const x = Math.max(0, Math.floor(workspace.left - stage.left));
+  const y = Math.max(0, Math.floor(workspace.top - stage.top));
+  const right = Math.min(state.displayWidth, Math.ceil(workspace.left + $('workspace').clientWidth - stage.left));
+  const bottom = Math.min(state.displayHeight, Math.ceil(workspace.top + $('workspace').clientHeight - stage.top));
+  if (right <= x || bottom <= y) return;
+  canvas.setAttribute('aria-busy', 'true');
+  try {
+    const region = { x, y, width: right - x, height: bottom - y };
+    const result = await resampleRegion(state.view, state.displayWidth, state.displayHeight, region, 'bilinear', () => revision !== state.paintRevision);
+    if (!result || revision !== state.paintRevision) return;
+    canvas.width = result.width; canvas.height = result.height;
+    canvas.style.width = `${result.width}px`; canvas.style.height = `${result.height}px`;
+    canvas.style.left = `${x}px`; canvas.style.top = `${y}px`;
+    context.putImageData(new ImageData(result.data, result.width, result.height), 0, 0);
+  } catch (error) { if (revision === state.paintRevision) showError(error); }
+  finally { if (revision === state.paintRevision) canvas.setAttribute('aria-busy', 'false'); }
 }
 
 function positionMarker() {
@@ -120,12 +150,11 @@ async function renderView() {
   updateControls();
   $('status').textContent = 'Обработка каналов…';
   try {
-    const output = await composeChannels(state.source, state.source.metadata.model, new Set(state.enabled), () => revision !== state.revision);
+    const output = await composeChannels(state.preview ?? state.source, state.source.metadata.model, new Set(state.enabled), () => revision !== state.revision);
     if (!output || revision !== state.revision) return;
     state.view = output;
-    canvas.width = output.width;
-    canvas.height = output.height;
-    context.putImageData(new ImageData(output.data, output.width, output.height), 0, 0);
+    await drawViewport();
+    if (revision !== state.revision) return;
     showPixel();
     $('status').textContent = 'Готово';
   } catch (error) {
@@ -141,6 +170,7 @@ async function renderView() {
 async function installImage(source, name) {
   state.source = source;
   state.view = null;
+  state.preview = null;
   state.enabled = new Set(channelsFor(source.metadata.model).map(channel => channel.id));
   state.fit = true;
   state.filename = name.replace(/\.[^.]+$/, '');
@@ -159,7 +189,7 @@ async function installImage(source, name) {
 }
 
 async function loadFile(file) {
-  if (!file || state.loading) return;
+  if (!file || state.loading || document.querySelector('dialog[open]')) return;
   state.loading = true;
   $('error').hidden = true;
   $('status').textContent = 'Загрузка изображения…';
@@ -189,18 +219,56 @@ $('sample').addEventListener('click', async () => {
 $('pointer').addEventListener('click', () => setTool('pointer'));
 $('eyedropper').addEventListener('click', () => setTool('eyedropper'));
 $('fit').addEventListener('click', () => { state.fit = true; fitImage(); });
-$('actual').addEventListener('click', () => { state.fit = false; fitImage(); });
+$('actual').addEventListener('click', () => { state.fit = false; state.zoom = 100; fitImage(); });
+$('view-zoom').addEventListener('input', event => { state.fit = false; state.zoom = event.target.valueAsNumber; fitImage(); });
+$('workspace').addEventListener('scroll', drawViewport, { passive: true });
 new ResizeObserver(fitImage).observe($('workspace'));
 
 canvas.addEventListener('pointerdown', event => {
   if (event.button !== 0 || state.tool !== 'eyedropper' || !state.view || state.loading || state.rendering) return;
-  const box = canvas.getBoundingClientRect();
+  const box = $('image-stage').getBoundingClientRect();
   const x = Math.floor((event.clientX - box.left) * state.view.width / box.width);
   const y = Math.floor((event.clientY - box.top) * state.view.height / box.height);
   if (!pixelAt(state.view, x, y)) return;
   state.selection = { x, y };
   showPixel();
 });
+
+let baselineView;
+function startEditing() { baselineView = state.view; state.editing = true; updateControls(); }
+function finishEditing() { state.editing = false; baselineView = null; updateControls(); }
+function restorePreview() {
+  state.preview = null;
+  state.revision++;
+  state.rendering = false;
+  state.view = baselineView;
+  showPixel(); drawViewport(); updateControls();
+}
+async function commitEdit(result, { colorChanged = false, resized = false } = {}) {
+  let model = state.source.metadata.model;
+  if (colorChanged && model.startsWith('G')) {
+    model = model.endsWith('A') ? 'RGBA' : 'RGB';
+    state.enabled = new Set(channelsFor(model).map(channel => channel.id));
+  }
+  const count = channelsFor(model).length;
+  const description = (model.startsWith('G') ? 'Gray' : 'RGB') + (model.endsWith('A') ? ' + Alpha' : '');
+  state.source = { ...result, metadata: { format: 'РАСТР', model, width: result.width, height: result.height, depth: `${count * 8} бит (${description})` } };
+  state.preview = null; state.view = null;
+  if (resized) { state.fit = false; resetPixel(); }
+  $('dimensions').textContent = `${result.width} × ${result.height} px`;
+  $('depth').textContent = state.source.metadata.depth;
+  $('document-format').textContent = state.source.metadata.format;
+  drawChannelPanel(); fitImage(); await renderView();
+}
+const levelsTool = createLevelsTool({
+  preview: async result => { state.preview = result; await renderView(); },
+  restore: restorePreview,
+  commit: commitEdit,
+  close: finishEditing,
+});
+const resizeTool = createResizeTool({ commit: result => commitEdit(result, { resized: true }), close: finishEditing });
+$('levels').addEventListener('click', () => { startEditing(); levelsTool.open(state.source); });
+$('resize').addEventListener('click', () => { startEditing(); resizeTool.open(state.source); });
 canvas.addEventListener('keydown', event => {
   if (state.tool !== 'eyedropper' || !state.view || state.loading || state.rendering) return;
   const offsets = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1], Enter: [0, 0] };

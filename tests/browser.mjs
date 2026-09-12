@@ -15,6 +15,7 @@ page.on('pageerror', error => errors.push(error.message));
 const url = process.env.TEST_URL || 'http://localhost:5173';
 let checks = 0;
 async function ready() { await page.waitForFunction(() => !document.getElementById('save').disabled); }
+async function painted() { await page.waitForFunction(() => document.getElementById('canvas').getAttribute('aria-busy') !== 'true'); }
 async function load(name, count) {
   await page.locator('#file').setInputFiles(resolve(root, 'samples', name));
   await ready();
@@ -23,6 +24,8 @@ async function load(name, count) {
   checks++;
 }
 async function canvasPixels() {
+  await page.locator('#actual').click();
+  await painted();
   return page.locator('#canvas').evaluate(canvas => Array.from(canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data));
 }
 async function exportAs(format, fileName) {
@@ -139,9 +142,13 @@ try {
     }
   });
   await ready();
+  await page.locator('#actual').click();
+  await painted();
   assert.deepEqual(await page.locator('#canvas').evaluate(c => Array.from(c.getContext('2d').getImageData(10, 20, 1, 1).data)), [10, 20, 30, 255]);
   checks += 2;
-  const box = await page.locator('#canvas').boundingBox();
+  await page.locator('#fit').click();
+  await painted();
+  const box = await page.locator('#image-stage').boundingBox();
   const px = Math.floor(1000.5 * box.width / 3200 * 1000) / 1000;
   const py = Math.floor(900.5 * box.height / 2400 * 1000) / 1000;
   await page.mouse.click(box.x + px, box.y + py);
@@ -150,7 +157,8 @@ try {
   assert.equal(await page.locator('#pixel-r').innerText(), '232');
   await page.locator('#actual').click();
   await page.locator('#workspace').evaluate(e => { e.scrollLeft = 1000; e.scrollTop = 800; });
-  const actualBox = await page.locator('#canvas').boundingBox();
+  await painted();
+  const actualBox = await page.locator('#image-stage').boundingBox();
   const workspaceBox = await page.locator('#workspace').boundingBox();
   const clickX = workspaceBox.x + 100, clickY = workspaceBox.y + 100;
   await page.mouse.click(clickX, clickY);

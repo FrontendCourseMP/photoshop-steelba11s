@@ -4,8 +4,12 @@ import Pointer from '../../vendor/lucide/mouse-pointer-2.js';
 import Pipette from '../../vendor/lucide/pipette.js';
 import Fit from '../../vendor/lucide/scan.js';
 import ImageIcon from '../../vendor/lucide/image.js';
+import Sliders from '../../vendor/lucide/sliders-horizontal.js';
+import Scaling from '../../vendor/lucide/scaling.js';
+import Help from '../../vendor/lucide/circle-question-mark.js';
+import Arrow from '../../vendor/lucide/arrow-right.js';
 
-const icons = { folder: Folder, download: Download, pointer: Pointer, pipette: Pipette, fit: Fit, image: ImageIcon };
+const icons = { folder: Folder, download: Download, pointer: Pointer, pipette: Pipette, fit: Fit, image: ImageIcon, levels: Sliders, resize: Scaling, help: Help, arrow: Arrow };
 export function renderIcons() {
   const ns = 'http://www.w3.org/2000/svg';
   for (const element of document.querySelectorAll('[data-icon]')) {

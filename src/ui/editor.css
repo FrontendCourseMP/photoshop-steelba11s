@@ -28,7 +28,7 @@ svg { display: block; width: 20px; height: 20px; flex: none; }
 .icon-button.selected { background: #3a4433; border-color: #738e5a; color: #d1edb3; }
 .numeric { font-size: 12px; font-weight: 650; }
 .tool-divider { width: 24px; border-top: 1px solid var(--line); margin: 5px 0; }
-.workspace { position: relative; display: flex; overflow: auto; padding: 32px; min-width: 0; min-height: 0; background: #151816; }
+.workspace { position: relative; display: flex; overflow: auto; padding: 50px; min-width: 0; min-height: 0; background: #151816; }
 .workspace.dragging { outline: 2px dashed var(--accent); outline-offset: -10px; background: #242e22; }
 .empty-state { margin: auto; text-align: center; display: flex; flex-direction: column; align-items: center; }
 .empty-icon { color: #9faa9f; margin-bottom: 18px; }
@@ -37,8 +37,8 @@ h1 { font-size: 21px; font-weight: 550; margin: 0; }
 .empty-state p { color: var(--muted); font-size: 12px; margin: 8px 0 25px; }
 .text-button { color: #b0b9b0; font-size: 12px; padding: 10px; margin-top: 8px; border-color: transparent; background: transparent; }
 .image-stage { position: relative; flex: none; margin: auto; box-shadow: 0 0 0 1px #4b504b, 0 8px 32px #0005; }
-.checker, #canvas { background-color: #ddd; background-image: conic-gradient(#aaa 25%, transparent 0 50%, #aaa 0 75%, transparent 0); background-size: 16px 16px; }
-#canvas { display: block; width: 100%; height: 100%; }
+.checker, .image-stage { background-color: #ddd; background-image: conic-gradient(#aaa 25%, transparent 0 50%, #aaa 0 75%, transparent 0); background-size: 16px 16px; }
+#canvas { display: block; position: absolute; left: 0; top: 0; }
 .pipette-active { cursor: crosshair; }
 .pick-marker { position: absolute; width: 14px; height: 14px; border: 1px solid #fff; outline: 1px solid #171717; transform: translate(-50%, -50%); border-radius: 50%; pointer-events: none; }
 .pick-marker::after { content: ''; position: absolute; width: 2px; height: 2px; left: 5px; top: 5px; background: #fff; box-shadow: 0 0 0 1px #171717; }
@@ -97,7 +97,7 @@ dialog::backdrop { background: #070b09a8; }
   .document-bar { padding: 0 14px; }
   .main { grid-template-columns: minmax(0, 1fr); grid-template-rows: 49px 48dvh auto; }
   .tools { flex-direction: row; padding: 6px 12px; gap: 8px; border-right: none; border-bottom: 1px solid var(--line); }.tool-divider { width: 1px; height: 22px; border-top: none; border-left: 1px solid var(--line); margin: 0 5px; }
-  .workspace { padding: 16px; }.empty-icon { margin-bottom: 8px; }.empty-icon svg { width: 32px; height: 32px; }.empty-state h1 { font-size: 19px; }.empty-state p { margin: 5px 0 16px; }
+  .workspace { padding: 50px; }.empty-icon { margin-bottom: 8px; }.empty-icon svg { width: 32px; height: 32px; }.empty-state h1 { font-size: 19px; }.empty-state p { margin: 5px 0 16px; }
   .inspector { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); overflow: visible; border-left: none; border-top: 1px solid var(--line); }
   .pixel-panel { border-top: none; border-left: 1px solid var(--line); }.panel-title { padding: 14px 12px; flex-wrap: wrap; }.panel-title > span { flex-basis: 100%; }
   .channels { padding: 0 5px 12px; }.channel-row { grid-template-columns: 15px 32px minmax(0, 1fr); gap: 6px; padding: 8px 6px; min-height: 55px; }.channel-badge { display: none; }.thumbnail { width: 32px; height: 32px; }.channel-name { font-size: 11px; }
@@ -105,3 +105,49 @@ dialog::backdrop { background: #070b09a8; }
   .statusbar { padding: 9px 12px; flex-wrap: wrap; gap: 8px; }.image-info { flex-wrap: wrap; gap: 6px 14px; font-size: 10px; }.error { left: 12px; width: calc(100% - 24px); bottom: 16px; }
 }
 @media (max-width: 360px) { .file-actions .command span:not([data-icon]) { display: none; }.brand { font-size: 20px; } }
+.zoom-control { display: flex; align-items: center; gap: 8px; }
+.zoom-control input { width: 96px; margin: 0; accent-color: var(--accent); }
+#display-scale { min-width: 47px; text-align: right; }
+.adjustment-dialog { width: min(460px, calc(100% - 24px)); }
+.histogram-toolbar { display: flex; align-items: flex-end; gap: 14px; }
+.histogram-toolbar .field { flex: 1; min-width: 0; margin: 0; }
+.segmented { border: 0; margin: 0; padding: 0; display: flex; flex: none; }
+.segmented legend { font-size: 11px; color: var(--muted); margin-bottom: 7px; }
+.segmented label { position: relative; cursor: pointer; }
+.segmented input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.segmented span { display: block; border: 1px solid var(--line); padding: 10px 9px; font-size: 11px; }
+.segmented label:first-of-type span { border-radius: 4px 0 0 4px; }
+.segmented label:last-of-type span { border-radius: 0 4px 4px 0; border-left: 0; }
+.segmented input:checked + span { background: #3a4433; color: #d1edb3; }
+.segmented input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+.histogram-labels { display: flex; justify-content: space-between; gap: 12px; min-height: 29px; padding-top: 13px; font-size: 10px; color: var(--muted); }
+#levels-histogram { width: 100%; height: 140px; background: #181d19; display: block; border-bottom: 1px solid #778176; }
+.histogram-axis { display: flex; justify-content: space-between; font: 10px ui-monospace, monospace; color: var(--muted); margin-top: 5px; }
+.levels-track { position: relative; height: 24px; margin: 8px 8px 0; background: linear-gradient(to right, #000, #fff) top / 100% 5px no-repeat; }
+.level-marker { position: absolute; top: -1px; transform: translateX(-50%); width: 18px; height: 22px; border: 0; padding: 0; border-radius: 0; background: transparent; touch-action: none; }
+.level-marker::after { content: ''; position: absolute; left: 2px; top: 4px; width: 14px; height: 14px; clip-path: polygon(50% 0, 100% 100%, 0 100%); background: var(--marker-color); }
+.level-marker:hover:not(:disabled) { background: #66745b66; }
+.black-marker { --marker-color: #060906; filter: drop-shadow(0 0 1px #eee); z-index: 2; }
+.gamma-marker { --marker-color: #969e91; z-index: 3; }
+.white-marker { --marker-color: #f0f4ec; z-index: 2; }
+.input-levels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.input-levels .field { margin: 7px 0 17px; }
+.check-field { display: flex; align-items: center; gap: 9px; font-size: 12px; }
+.check-field input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
+.form-error { color: #f19d9d; font-size: 12px; margin: 12px 0 0; overflow-wrap: anywhere; }
+.form-error:empty { margin: 0; }
+.form-progress { color: var(--muted); font-size: 11px; min-height: 16px; margin: 7px 0 0; }
+.reset-action { margin-right: auto; }
+.resize-summary { display: grid; grid-template-columns: minmax(0, 1fr) 20px minmax(0, 1fr); gap: 14px; align-items: center; padding: 8px 0 18px; border-bottom: 1px solid var(--line); }
+.resize-summary div { display: grid; gap: 5px; min-width: 0; }
+.resize-summary span, .resize-summary small { color: var(--muted); font-size: 11px; }
+.resize-summary strong { font-size: 17px; font-weight: 550; overflow-wrap: anywhere; }
+.resize-dimensions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.resize-dimensions .field { margin-top: 0; }
+.method-field { display: flex; align-items: flex-end; gap: 8px; margin-top: 20px; }
+.method-field .field { flex: 1; min-width: 0; margin: 0; }
+.tooltip-anchor { position: relative; }
+.tooltip-anchor [role="tooltip"] { display: none; position: absolute; right: 0; bottom: 44px; padding: 10px 12px; width: 230px; border: 1px solid #64755b; background: #172215; color: #e1ecd9; border-radius: 4px; font-size: 12px; z-index: 5; }
+.tooltip-anchor:hover [role="tooltip"], .tooltip-anchor:focus-within [role="tooltip"] { display: block; }
+@media (max-width: 680px) { .image-info { flex: 1; }.zoom-control { margin-left: auto; }.tools { gap: 5px; }.tools .icon-button { width: 34px; } }
+@media (max-width: 380px) { .adjustment-dialog { padding: 16px; }.adjustment-dialog .command { padding: 7px 8px; font-size: 12px; }.input-levels { gap: 8px; }.histogram-toolbar { gap: 8px; }.segmented span { padding: 10px 7px; } }
