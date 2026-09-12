@@ -1,13 +1,74 @@
 <!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" href="/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>React App</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/index.tsx"></script>
-  </body>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#202321">
+  <title>Пиксель | Редактор изображений</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="./src/ui/editor.css">
+  <script type="module" src="./src/main.js"></script>
+</head>
+<body>
+  <div class="editor">
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="Пиксель, главная">П<span class="brand-dot">и</span>ксель<span class="brand-index">01 / 02</span></a>
+      <div class="file-actions">
+        <button id="open" class="command"><span data-icon="folder"></span><span>Открыть</span></button>
+        <button id="save" class="command primary" disabled><span data-icon="download"></span><span>Сохранить</span></button>
+      </div>
+      <input id="file" type="file" accept=".png,.jpg,.jpeg,.gb7" hidden>
+    </header>
+    <div class="document-bar"><span id="document-name">Без изображения</span><span id="document-format" class="format-label">PNG / JPG / GB7</span></div>
+    <main class="main">
+      <nav class="tools" aria-label="Инструменты">
+        <button id="pointer" class="icon-button selected" aria-label="Просмотр" title="Просмотр" aria-pressed="true"><span data-icon="pointer"></span></button>
+        <button id="eyedropper" class="icon-button" aria-label="Пипетка" title="Пипетка" aria-pressed="false" disabled><span data-icon="pipette"></span></button>
+        <div class="tool-divider"></div>
+        <button id="fit" class="icon-button" aria-label="Вписать в окно" title="Вписать в окно" disabled><span data-icon="fit"></span></button>
+        <button id="actual" class="icon-button numeric" aria-label="Исходный размер" title="Исходный размер" disabled>1:1</button>
+      </nav>
+      <section id="workspace" class="workspace" aria-label="Рабочая область">
+        <div id="empty" class="empty-state">
+          <span data-icon="image" class="empty-icon"></span>
+          <h1>Новое изображение</h1>
+          <p>PNG, JPG, GrayBit-7</p>
+          <button id="empty-open" class="command primary">Открыть файл</button>
+          <button id="sample" class="text-button">Тестовое изображение</button>
+        </div>
+        <div id="image-stage" class="image-stage" hidden>
+          <canvas id="canvas" aria-label="Изображение" tabindex="0"></canvas>
+          <div id="pick-marker" class="pick-marker" hidden></div>
+        </div>
+      </section>
+      <aside class="inspector" aria-label="Свойства изображения">
+        <section class="channels-panel">
+          <div class="panel-title"><h2>Каналы</h2><span id="channel-model">—</span></div>
+          <div id="channels" class="channels"><p class="muted panel-empty">Нет изображения</p></div>
+        </section>
+        <section class="pixel-panel">
+          <div class="panel-title"><h2>Цвет пикселя</h2><span id="pick-state">Не выбран</span></div>
+          <div class="color-preview checker"><div id="color-swatch"></div><span id="hex">—</span></div>
+          <div class="coordinates"><span>X <b id="pixel-x">—</b></span><span>Y <b id="pixel-y">—</b></span></div>
+          <h3>RGB <span>0–255</span></h3>
+          <dl class="values"><div><dt><i class="dot red"></i>R</dt><dd id="pixel-r">—</dd></div><div><dt><i class="dot green"></i>G</dt><dd id="pixel-g">—</dd></div><div><dt><i class="dot blue"></i>B</dt><dd id="pixel-b">—</dd></div><div><dt>Alpha</dt><dd id="pixel-alpha">—</dd></div></dl>
+          <h3>CIELAB <span>D65</span></h3>
+          <dl class="values"><div><dt>L*</dt><dd id="pixel-l">—</dd></div><div><dt>a*</dt><dd id="pixel-a">—</dd></div><div><dt>b*</dt><dd id="pixel-lab-b">—</dd></div></dl>
+        </section>
+      </aside>
+    </main>
+    <footer class="statusbar"><span id="status" role="status" aria-live="polite">Готово</span><div class="image-info"><span id="dimensions">— × — px</span><span id="depth">— бит</span><span id="display-scale">— %</span></div></footer>
+  </div>
+  <div id="error" class="error" role="alert" hidden><span id="error-text"></span><button id="error-close" aria-label="Закрыть сообщение">×</button></div>
+  <dialog id="export-dialog">
+    <form id="export-form">
+      <div class="dialog-heading"><h2>Сохранить изображение</h2><button type="button" id="export-close" class="icon-button" aria-label="Закрыть">×</button></div>
+      <label class="field">Имя файла<input id="export-name" required maxlength="120"></label>
+      <label class="field">Формат<select id="export-format"><option value="png">PNG</option><option value="jpg">JPG</option><option value="gb7">GrayBit-7 (.gb7)</option></select></label>
+      <p id="export-note" class="export-note">Без потерь, с сохранением прозрачности.</p>
+      <p class="export-note">Сохраняется текущий вид с выбранными каналами.</p>
+      <div class="dialog-actions"><button type="button" id="export-cancel" class="command">Отмена</button><button type="submit" id="export-submit" class="command primary"><span data-icon="download"></span>Сохранить</button></div>
+    </form>
+  </dialog>
+</body>
 </html>
