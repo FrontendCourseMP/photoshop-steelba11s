@@ -12,7 +12,7 @@
 <body>
   <div class="editor">
     <header class="topbar">
-      <a class="brand" href="./" aria-label="Пиксель, главная">П<span class="brand-dot">и</span>ксель<span class="brand-index">01 / 04</span></a>
+      <a class="brand" href="./" aria-label="Пиксель, главная">П<span class="brand-dot">и</span>ксель<span class="brand-index">01 / 05</span></a>
       <div class="file-actions">
         <button id="open" class="command"><span data-icon="folder"></span><span>Открыть</span></button>
         <button id="save" class="command primary" disabled><span data-icon="download"></span><span>Сохранить</span></button>
@@ -26,6 +26,7 @@
         <button id="eyedropper" class="icon-button" aria-label="Пипетка" title="Пипетка" aria-pressed="false" disabled><span data-icon="pipette"></span></button>
         <button id="levels" class="icon-button" aria-label="Уровни" title="Уровни" disabled><span data-icon="levels"></span></button>
         <button id="resize" class="icon-button" aria-label="Размер изображения" title="Размер изображения" disabled><span data-icon="resize"></span></button>
+        <button id="kernels" class="icon-button" aria-label="Фильтры" title="Фильтры" disabled><span data-icon="kernel"></span></button>
         <div class="tool-divider"></div>
         <button id="fit" class="icon-button" aria-label="Вписать в окно" title="Вписать в окно" disabled><span data-icon="fit"></span></button>
         <button id="actual" class="icon-button numeric" aria-label="Исходный размер" title="Исходный размер" disabled>1:1</button>
@@ -103,6 +104,19 @@
       <div class="method-field"><label class="field">Интерполяция<select id="resize-method"><option value="bilinear">Билинейная</option><option value="nearest">Ближайший сосед</option></select></label><div class="tooltip-anchor"><button id="resize-method-info" type="button" class="icon-button" aria-label="Описание интерполяции" aria-describedby="resize-method-tooltip"><span data-icon="help"></span></button><span id="resize-method-tooltip" role="tooltip"></span></div></div>
       <p id="resize-error" class="form-error" role="alert"></p><p id="resize-progress" class="form-progress" role="status"></p>
       <div class="dialog-actions"><button type="button" id="resize-cancel" class="command">Отмена</button><button type="submit" id="resize-apply" class="command primary">Применить</button></div>
+    </form>
+  </dialog>
+  <dialog id="kernel-dialog" class="adjustment-dialog" aria-labelledby="kernel-title">
+    <form id="kernel-form">
+      <div class="dialog-heading"><h2 id="kernel-title">Фильтры</h2><button type="button" id="kernel-close" class="icon-button" aria-label="Закрыть фильтры">×</button></div>
+      <label class="field">Пресет<select id="kernel-preset"></select></label>
+      <fieldset class="kernel-matrix"><legend>Ядро 3×3</legend><div id="kernel-grid" class="kernel-grid"></div></fieldset>
+      <fieldset class="kernel-channel-field"><legend>Применить к каналам</legend><div id="kernel-channels"></div></fieldset>
+      <label class="field">Заполнение края<select id="kernel-padding"><option value="black">Чёрным</option><option value="white">Белым</option><option value="replicate">Копирование крайних пикселей</option></select></label>
+      <label class="check-field"><input id="kernel-preview" type="checkbox" checked>Предпросмотр</label>
+      <div class="kernel-feedback"><span id="kernel-status" class="form-progress" role="status" aria-live="polite"></span><progress id="kernel-progress" max="100" value="0" aria-label="Обработка изображения" hidden></progress></div>
+      <p id="kernel-error" class="form-error" role="alert"></p>
+      <div class="dialog-actions"><button type="button" id="kernel-reset" class="command reset-action">Сбросить</button><button type="button" id="kernel-cancel" class="command">Отмена</button><button type="submit" id="kernel-apply" class="command primary">Применить</button></div>
     </form>
   </dialog>
 </body>

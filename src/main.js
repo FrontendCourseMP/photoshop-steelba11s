@@ -6,6 +6,7 @@ import { renderIcons } from './ui/icons.js';
 import { resampleRegion } from './domain/resample.js';
 import { createLevelsTool } from './ui/levels-tool.js';
 import { createResizeTool } from './ui/resize-tool.js';
+import { createKernelTool } from './ui/kernel-tool.js';
 
 const $ = id => document.getElementById(id);
 const state = { source: null, view: null, preview: null, enabled: new Set(), tool: 'pointer', fit: true, zoom: 100, selection: null, loading: false, rendering: false, exporting: false, editing: false, revision: 0, paintRevision: 0 };
@@ -20,7 +21,7 @@ function showError(error) {
 function updateControls() {
   const unavailable = !state.source || state.loading || state.editing;
   for (const id of ['eyedropper', 'fit', 'actual', 'view-zoom']) $(id).disabled = unavailable;
-  for (const id of ['levels', 'resize']) $(id).disabled = unavailable || state.rendering;
+  for (const id of ['levels', 'resize', 'kernels']) $(id).disabled = unavailable || state.rendering;
   $('open').disabled = $('empty-open').disabled = $('sample').disabled = state.loading || state.editing;
   $('save').disabled = unavailable || state.rendering || state.exporting;
   for (const input of $('channels').querySelectorAll('input')) input.disabled = state.loading || state.editing;
@@ -267,8 +268,15 @@ const levelsTool = createLevelsTool({
   close: finishEditing,
 });
 const resizeTool = createResizeTool({ commit: result => commitEdit(result, { resized: true }), close: finishEditing });
+const kernelTool = createKernelTool({
+  preview: async result => { state.preview = result; await renderView(); },
+  restore: restorePreview,
+  commit: commitEdit,
+  close: finishEditing,
+});
 $('levels').addEventListener('click', () => { startEditing(); levelsTool.open(state.source); });
 $('resize').addEventListener('click', () => { startEditing(); resizeTool.open(state.source); });
+$('kernels').addEventListener('click', () => { startEditing(); kernelTool.open(state.source); });
 canvas.addEventListener('keydown', event => {
   if (state.tool !== 'eyedropper' || !state.view || state.loading || state.rendering) return;
   const offsets = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1], Enter: [0, 0] };

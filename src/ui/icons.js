@@ -8,8 +8,9 @@ import Sliders from '../../vendor/lucide/sliders-horizontal.js';
 import Scaling from '../../vendor/lucide/scaling.js';
 import Help from '../../vendor/lucide/circle-question-mark.js';
 import Arrow from '../../vendor/lucide/arrow-right.js';
+import Kernel from '../../vendor/lucide/grid-3x3.js';
 
-const icons = { folder: Folder, download: Download, pointer: Pointer, pipette: Pipette, fit: Fit, image: ImageIcon, levels: Sliders, resize: Scaling, help: Help, arrow: Arrow };
+const icons = { folder: Folder, download: Download, pointer: Pointer, pipette: Pipette, fit: Fit, image: ImageIcon, levels: Sliders, resize: Scaling, help: Help, arrow: Arrow, kernel: Kernel };
 export function renderIcons() {
   const ns = 'http://www.w3.org/2000/svg';
   for (const element of document.querySelectorAll('[data-icon]')) {
